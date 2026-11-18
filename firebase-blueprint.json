@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User gamification stats, cortisol baseline, and progress.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "xp": { "type": "integer" },
+        "level": { "type": "integer" },
+        "calmCoins": { "type": "integer" },
+        "streakDays": { "type": "integer" },
+        "totalFocusMinutes": { "type": "integer" },
+        "totalTasksCompleted": { "type": "integer" },
+        "cortisolScore": { "type": "integer" },
+        "unlockedBadges": { "type": "array" },
+        "lastActiveDate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId", "displayName", "xp", "level", "calmCoins", "streakDays",
+        "totalFocusMinutes", "totalTasksCompleted", "cortisolScore",
+        "unlockedBadges", "lastActiveDate", "createdAt", "updatedAt"
+      ]
+    },
+    "CalmTask": {
+      "title": "CalmTask",
+      "description": "Prioritized to-do task with deadline, reminder, and cognitive load.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["CRITICAL", "HIGH", "BALANCED", "LOW"] },
+        "cognitiveLoad": { "type": "integer" },
+        "category": { "type": "string", "enum": ["DEEP_WORK", "ADMIN", "WELLNESS", "CREATIVE", "PERSONAL"] },
+        "completed": { "type": "boolean" },
+        "dueAtMillis": { "type": "integer" },
+        "reminderAtMillis": { "type": "integer" },
+        "estimatedMinutes": { "type": "integer" },
+        "xpReward": { "type": "integer" },
+        "completedAtMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId", "title", "description", "priority", "cognitiveLoad", "category",
+        "completed", "dueAtMillis", "reminderAtMillis", "estimatedMinutes",
+        "xpReward", "completedAtMillis", "createdAt", "updatedAt"
+      ]
+    },
+    "CalmNote": {
+      "title": "CalmNote",
+      "description": "Quick note, reflection, or brain-dump for cognitive offloading.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "tag": { "type": "string", "enum": ["BRAIN_DUMP", "IDEA", "REFLECTION", "MEETING", "GRATITUDE"] },
+        "pinned": { "type": "boolean" },
+        "linkedTaskTitle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "title", "content", "tag", "pinned", "linkedTaskTitle", "createdAt", "updatedAt"]
+    },
+    "CortisolLog": {
+      "title": "CortisolLog",
+      "description": "Cortisol level and stress check-in entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "level": { "type": "integer" },
+        "trigger": { "type": "string" },
+        "mood": { "type": "string", "enum": ["SERENE", "FOCUSED", "TENSE", "OVERWHELMED", "RECOVERING"] },
+        "note": { "type": "string" },
+        "loggedAtMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "level", "trigger", "mood", "note", "loggedAtMillis", "createdAt"]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed or partial deep work timer session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "taskTitle": { "type": "string" },
+        "durationMinutes": { "type": "integer" },
+        "completed": { "type": "boolean" },
+        "cortisolDelta": { "type": "integer" },
+        "xpEarned": { "type": "integer" },
+        "startedAtMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "taskTitle", "durationMinutes", "completed", "cortisolDelta", "xpEarned", "startedAtMillis", "createdAt"]
+    },
+    "RewardItem": {
+      "title": "RewardItem",
+      "description": "Self-care gamified reward redeemable with Calm Coins.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "costCoins": { "type": "integer" },
+        "iconKey": { "type": "string" },
+        "redeemedCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Client writes FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "title", "costCoins", "iconKey", "redeemedCount", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile and gamification state."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CalmTask" },
+      "description": "User tasks with deadlines, reminders, and cognitive load."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/CalmNote" },
+      "description": "User notes and brain-dumps."
+    },
+    "/users/{userId}/cortisolLogs/{logId}": {
+      "schema": { "$ref": "#/entities/CortisolLog" },
+      "description": "User cortisol check-ins and recovery logs."
+    },
+    "/users/{userId}/focusSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "User deep work timer sessions."
+    },
+    "/users/{userId}/rewards/{rewardId}": {
+      "schema": { "$ref": "#/entities/RewardItem" },
+      "description": "User redeemable self-care rewards."
+    }
+  }
+}

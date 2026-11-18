@@ -1,0 +1,6 @@
+{
+  "name": "CalmFlow",
+  "description": "Dark-mode to-do list and stress management app with a cortisol level meter, deadlines, reminders, deep work focus timer, notes, gamified rewards, analytics, and home screen widgets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

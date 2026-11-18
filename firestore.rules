@@ -1,0 +1,243 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 10000000 &&
+             data.level is int && data.level >= 1 && data.level <= 1000 &&
+             data.calmCoins is int && data.calmCoins >= 0 && data.calmCoins <= 1000000 &&
+             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500 &&
+             data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 10000000 &&
+             data.totalTasksCompleted is int && data.totalTasksCompleted >= 0 && data.totalTasksCompleted <= 1000000 &&
+             data.cortisolScore is int && data.cortisolScore >= 0 && data.cortisolScore <= 100 &&
+             data.unlockedBadges is list && data.unlockedBadges.size() <= 30 &&
+             (data.unlockedBadges.size() == 0 || data.unlockedBadges[0] is string) &&
+             data.lastActiveDate is string && data.lastActiveDate.size() <= 20;
+    }
+
+    function isValidTask(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() <= 600 &&
+             data.priority in ['CRITICAL', 'HIGH', 'BALANCED', 'LOW'] &&
+             data.cognitiveLoad is int && data.cognitiveLoad >= 1 && data.cognitiveLoad <= 5 &&
+             data.category in ['DEEP_WORK', 'ADMIN', 'WELLNESS', 'CREATIVE', 'PERSONAL'] &&
+             data.completed is bool &&
+             data.dueAtMillis is int && data.dueAtMillis >= 0 &&
+             data.reminderAtMillis is int && data.reminderAtMillis >= 0 &&
+             data.estimatedMinutes is int && data.estimatedMinutes >= 5 && data.estimatedMinutes <= 480 &&
+             data.xpReward is int && data.xpReward >= 10 && data.xpReward <= 500 &&
+             data.completedAtMillis is int && data.completedAtMillis >= 0;
+    }
+
+    function isValidNote(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.content is string && data.content.size() <= 4000 &&
+             data.tag in ['BRAIN_DUMP', 'IDEA', 'REFLECTION', 'MEETING', 'GRATITUDE'] &&
+             data.pinned is bool &&
+             data.linkedTaskTitle is string && data.linkedTaskTitle.size() <= 140;
+    }
+
+    function isValidCortisolLog(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.level is int && data.level >= 0 && data.level <= 100 &&
+             data.trigger is string && data.trigger.size() <= 80 &&
+             data.mood in ['SERENE', 'FOCUSED', 'TENSE', 'OVERWHELMED', 'RECOVERING'] &&
+             data.note is string && data.note.size() <= 300 &&
+             data.loggedAtMillis is int && data.loggedAtMillis > 0;
+    }
+
+    function isValidFocusSession(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.taskTitle is string && data.taskTitle.size() <= 140 &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 240 &&
+             data.completed is bool &&
+             data.cortisolDelta is int && data.cortisolDelta >= -40 && data.cortisolDelta <= 40 &&
+             data.xpEarned is int && data.xpEarned >= 0 && data.xpEarned <= 1000 &&
+             data.startedAtMillis is int && data.startedAtMillis > 0;
+    }
+
+    function isValidReward(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             data.costCoins is int && data.costCoins >= 10 && data.costCoins <= 10000 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 30 &&
+             data.redeemedCount is int && data.redeemedCount >= 0 && data.redeemedCount <= 10000;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'xp', 'level', 'calmCoins', 'streakDays',
+                         'totalFocusMinutes', 'totalTasksCompleted', 'cortisolScore',
+                         'unlockedBadges', 'lastActiveDate', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'xp', 'level', 'calmCoins', 'streakDays',
+                         'totalFocusMinutes', 'totalTasksCompleted', 'cortisolScore',
+                         'unlockedBadges', 'lastActiveDate', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'xp', 'level', 'calmCoins', 'streakDays',
+                         'totalFocusMinutes', 'totalTasksCompleted', 'cortisolScore',
+                         'unlockedBadges', 'lastActiveDate', 'updatedAt'
+                       ]);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /tasks/{taskId} {
+        allow get, delete: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'description', 'priority', 'cognitiveLoad', 'category',
+                           'completed', 'dueAtMillis', 'reminderAtMillis', 'estimatedMinutes',
+                           'xpReward', 'completedAtMillis', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'description', 'priority', 'cognitiveLoad', 'category',
+                           'completed', 'dueAtMillis', 'reminderAtMillis', 'estimatedMinutes',
+                           'xpReward', 'completedAtMillis', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidTask(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidTask(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'description', 'priority', 'cognitiveLoad', 'category',
+                           'completed', 'dueAtMillis', 'reminderAtMillis', 'estimatedMinutes',
+                           'xpReward', 'completedAtMillis', 'updatedAt'
+                         ]);
+      }
+
+      match /notes/{noteId} {
+        allow get, delete: if isOwner(userId) && isValidId(noteId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'content', 'tag', 'pinned', 'linkedTaskTitle', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'content', 'tag', 'pinned', 'linkedTaskTitle', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidNote(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         isValidNote(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'content', 'tag', 'pinned', 'linkedTaskTitle', 'updatedAt'
+                         ]);
+      }
+
+      match /cortisolLogs/{logId} {
+        allow get, delete: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'level', 'trigger', 'mood', 'note', 'loggedAtMillis', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'level', 'trigger', 'mood', 'note', 'loggedAtMillis', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidCortisolLog(incoming(), userId);
+        allow update: if false;
+      }
+
+      match /focusSessions/{sessionId} {
+        allow get, delete: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'taskTitle', 'durationMinutes', 'completed', 'cortisolDelta',
+                           'xpEarned', 'startedAtMillis', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'taskTitle', 'durationMinutes', 'completed', 'cortisolDelta',
+                           'xpEarned', 'startedAtMillis', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidFocusSession(incoming(), userId);
+        allow update: if false;
+      }
+
+      match /rewards/{rewardId} {
+        allow get, delete: if isOwner(userId) && isValidId(rewardId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(rewardId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'costCoins', 'iconKey', 'redeemedCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'costCoins', 'iconKey', 'redeemedCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidReward(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(rewardId) &&
+                         isValidReward(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'costCoins', 'iconKey', 'redeemedCount', 'updatedAt'
+                         ]);
+      }
+    }
+  }
+}
